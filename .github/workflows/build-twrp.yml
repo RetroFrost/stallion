@@ -23,9 +23,9 @@ jobs:
       ALLOW_MISSING_DEPENDENCIES: "true"
 
       # Reduce Soong memory pressure.
-      GOMAXPROCS: "2"
-      GOGC: "20"
-      GOMEMLIMIT: 12GiB
+      GOMAXPROCS: "1"
+      GOGC: "10"
+      GOMEMLIMIT: 7GiB
 
     steps:
       # Must run before checkout.
@@ -34,7 +34,7 @@ jobs:
         with:
           root-reserve-mb: 1024
           temp-reserve-mb: 100
-          swap-size-mb: 2048
+          swap-size-mb: 8192
           remove-dotnet: "true"
           remove-android: "true"
           remove-haskell: "true"
@@ -127,6 +127,24 @@ jobs:
           source build/envsetup.sh
 
           lunch twrp_stallion-ap2a-eng
+
+          # Keep lightweight diagnostics in the live Actions log. If the
+          # hosted runner is starved again, the last sample will survive even
+          # though artifact-upload steps cannot run after a runner disconnect.
+          free -h
+          swapon --show
+          df -h "$GITHUB_WORKSPACE"
+
+          (
+            while sleep 120; do
+              date -u
+              awk '/MemTotal|MemAvailable|SwapTotal|SwapFree/ { print }' /proc/meminfo
+              swapon --show
+              df -h "$GITHUB_WORKSPACE"
+            done
+          ) &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
 
           set -o pipefail
           mka -j1 vendorbootimage 2>&1 |
