@@ -1,0 +1,169 @@
+name: Build TWRP for Stallion
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: twrp-stallion
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+
+    env:
+      MANIFEST_URL: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git
+      MANIFEST_BRANCH: twrp-14.1
+      DEVICE_PATH: device/google/stallion
+      BUILD_ID: AP2A.240905.003
+      ALLOW_MISSING_DEPENDENCIES: "true"
+
+      # Reduce Soong memory pressure.
+      GOMAXPROCS: "2"
+      GOGC: "20"
+      GOMEMLIMIT: 12GiB
+
+    steps:
+      # Must run before checkout.
+      - name: Maximize build disk
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 1024
+          temp-reserve-mb: 100
+          swap-size-mb: 2048
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          remove-docker-images: "true"
+
+      - name: Checkout Stallion tree
+        uses: actions/checkout@v4
+        with:
+          path: stallion-tree
+
+      - name: Install repo
+        run: |
+          curl -L https://storage.googleapis.com/git-repo-downloads/repo \
+            -o "$GITHUB_WORKSPACE/repo"
+          chmod +x "$GITHUB_WORKSPACE/repo"
+
+      - name: Sync TWRP 14.1
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/twrp"
+          cd "$GITHUB_WORKSPACE/twrp"
+
+          "$GITHUB_WORKSPACE/repo" init \
+            --depth=1 \
+            --partial-clone \
+            --clone-filter=blob:limit=10M \
+            --no-clone-bundle \
+            -u "$MANIFEST_URL" \
+            -b "$MANIFEST_BRANCH"
+
+          "$GITHUB_WORKSPACE/repo" sync \
+            -c \
+            --force-sync \
+            --no-clone-bundle \
+            --no-tags \
+            -j4
+
+          df -h
+
+      - name: Add and repair device tree
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
+          mkdir -p "$DEVICE_PATH"
+
+          rsync -a \
+            --exclude=".git/" \
+            --exclude=".github/" \
+            "$GITHUB_WORKSPACE/stallion-tree/" \
+            "$DEVICE_PATH/"
+
+          # Soong only accepts // comments in Android.bp.
+          sed -i 's/^#\(.*\)$/\/\/\1/' "$DEVICE_PATH/Android.bp"
+
+          # Product variables do not belong in BoardConfig.mk.
+          sed -i \
+            '/^PRODUCT_USE_DYNAMIC_PARTITIONS := true$/d' \
+            "$DEVICE_PATH/BoardConfig.mk"
+
+          grep -qxF 'PRODUCT_USE_DYNAMIC_PARTITIONS := true' \
+            "$DEVICE_PATH/device.mk" ||
+            printf '\nPRODUCT_USE_DYNAMIC_PARTITIONS := true\n' \
+              >> "$DEVICE_PATH/device.mk"
+
+          grep -qxF 'PRODUCT_FULL_TREBLE_OVERRIDE := true' \
+            "$DEVICE_PATH/device.mk" ||
+            printf 'PRODUCT_FULL_TREBLE_OVERRIDE := true\n' \
+              >> "$DEVICE_PATH/device.mk"
+
+          # The old two-part lunch entries are invalid on this branch.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("device/google/stallion/AndroidProducts.mk")
+          text = path.read_text()
+          text = text.split("\nCOMMON_LUNCH_CHOICES :=", 1)[0].rstrip() + "\n"
+          path.write_text(text)
+          PY
+
+      - name: Free repo metadata space
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
+          du -sh .repo || true
+          rm -rf "$GITHUB_WORKSPACE/twrp/.repo"
+          df -h
+
+      - name: Build vendor_boot
+        shell: bash
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
+          source build/envsetup.sh
+
+          lunch twrp_stallion-ap2a-eng
+
+          set -o pipefail
+          mka -j1 vendorbootimage 2>&1 |
+            tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Collect output
+        if: success()
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+
+          find "$GITHUB_WORKSPACE/twrp/out/target/product/stallion" \
+            -maxdepth 1 -type f \
+            \( -name "vendor_boot*.img" \
+            -o -name "recovery*.img" \
+            -o -name "*.zip" \) \
+            -exec cp -v {} "$GITHUB_WORKSPACE/artifacts/" \;
+
+          shopt -s nullglob
+          files=("$GITHUB_WORKSPACE/artifacts/"*)
+          ((${#files[@]} > 0))
+
+          sha256sum "${files[@]}" \
+            > "$GITHUB_WORKSPACE/artifacts/SHA256SUMS"
+
+      - name: Upload recovery
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-stallion
+          path: artifacts/
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-stallion-build-log
+          path: build.log
+          if-no-files-found: warn
