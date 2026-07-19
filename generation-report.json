@@ -1,0 +1,152 @@
+{
+  "generator_version": "4.0.2",
+  "kernel_page_size": 4096,
+  "device": {
+    "manufacturer": "google",
+    "codename": "stallion",
+    "model": "Pixel 10a",
+    "platform": "zumapro",
+    "identity_confidence": "high",
+    "identity_evidence": [
+      "ro.product.vendor.device=stallion",
+      "ro.product.odm.device=stallion",
+      "ro.product.product.device=stallion",
+      "fingerprint=stallion_beta",
+      "fingerprint=stallion",
+      "ro.build.description=stallion_beta-user 17 CP21.260330.011 15499021 release-keys",
+      "board=stallion",
+      "ramdisk file=zumapro",
+      "ramdisk file=zuma",
+      "ramdisk file=stallion",
+      "ramdisk file=zumapro-fips",
+      "ramdisk file=zuma-fips"
+    ],
+    "dynamic_partition_evidence": [
+      "ro.boot.dynamic_partitions=true"
+    ]
+  },
+  "images": [
+    {
+      "file": "vendor_boot.img",
+      "kind": "vendor_boot",
+      "header_version": 4,
+      "size": 67108864,
+      "ramdisk_fragments": [
+        {
+          "name": "fragment-00",
+          "type": "platform",
+          "size": 23530825,
+          "board_id": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "selected": true
+        },
+        {
+          "name": "16K",
+          "type": "none",
+          "size": 16805736,
+          "board_id": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "selected": false
+        }
+      ]
+    },
+    {
+      "file": "boot.img",
+      "kind": "boot",
+      "header_version": 4,
+      "size": 67108864,
+      "ramdisk_fragments": []
+    },
+    {
+      "file": "vendor_kernel_boot.img",
+      "kind": "vendor_kernel_boot",
+      "header_version": 4,
+      "size": 67108864,
+      "ramdisk_fragments": [
+        {
+          "name": "fragment-00",
+          "type": "platform",
+          "size": 6630557,
+          "board_id": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "selected": true
+        }
+      ]
+    },
+    {
+      "file": "init_boot.img",
+      "kind": "init_boot",
+      "header_version": 4,
+      "size": 8388608,
+      "ramdisk_fragments": [
+        {
+          "name": "init_boot",
+          "type": "none",
+          "size": 2670968,
+          "board_id": [],
+          "selected": true
+        }
+      ]
+    }
+  ],
+  "fstab_sources": [
+    "fstab.zumapro"
+  ],
+  "ramdisk_compressions": [
+    "lz4-legacy"
+  ],
+  "kernel_modules": 214,
+  "warnings": [
+    "Dynamic-partition support was enabled from: ro.boot.dynamic_partitions=true. Super partition sizes and membership cannot be recovered safely from boot-chain images and were intentionally not guessed.",
+    "Skipped page-size-specific ramdisk fragments that do not match the 4K kernel: 16K (16K).",
+    "Partition sizes are based on supplied image file sizes. Verify them against the factory package or fastboot getvar before flashing a locally built image."
+  ]
+}

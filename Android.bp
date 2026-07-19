@@ -1,0 +1,8 @@
+#
+# Copyright (C) 2026 The Android Open Source Project
+# Copyright (C) 2026 ReTWRPdtgen contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+soong_namespace {
+}
